@@ -1,0 +1,8 @@
+{
+  "name": "Remix B2B Frozen Food Catalog & PDF Generator",
+  "description": "Professional trilingual (English/German/Arabic) B2B export product catalog, technical specification sheets, and PDF export tool for Borouge IQF Processing Factory Egypt (borouge-eg.com) frozen vegetables, fruits, and specialties.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
