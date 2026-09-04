@@ -8,6 +8,9 @@ import { LinkedInPitchModal } from './components/LinkedInPitchModal';
 import { CompanyEditModal } from './components/CompanyEditModal';
 import { SpecSheetModal } from './components/SpecSheetModal';
 import { CatalogPdfView } from './components/CatalogPdfView';
+import { AiPdfStudioModal } from './components/AiPdfStudioModal';
+import { preloadAllImages } from './utils/imagePreloader';
+import { DEFAULT_PRODUCT_IMAGES } from './data/productImages';
 import {
   Search,
   Printer,
@@ -20,7 +23,8 @@ import {
   MessageCircle,
   Award,
   Layers,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Bot
 } from 'lucide-react';
 
 export default function App() {
@@ -34,6 +38,7 @@ export default function App() {
   const [selectedProductForSpec, setSelectedProductForSpec] = useState<Product | null>(null);
   const [isLinkedInModalOpen, setIsLinkedInModalOpen] = useState(false);
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
+  const [isPdfStudioOpen, setIsPdfStudioOpen] = useState(false);
 
   // Filter products based on search and category
   const filteredProducts = useMemo(() => {
@@ -64,7 +69,10 @@ export default function App() {
     });
   }, [products, selectedCategory, searchQuery]);
 
-  const handlePrintPdf = () => {
+  const handlePrintPdf = async () => {
+    // Preload and decode all images into browser cache before print
+    const urls = products.map((p) => DEFAULT_PRODUCT_IMAGES[p.id] || `/images/products/${p.id}.jpg`);
+    await preloadAllImages(urls);
     window.print();
   };
 
@@ -174,7 +182,7 @@ export default function App() {
           company={company}
           languageMode={languageMode}
           onLanguageChange={setLanguageMode}
-          onOpenPdf={handlePrintPdf}
+          onOpenPdf={() => setIsPdfStudioOpen(true)}
           onOpenLinkedInModal={() => setIsLinkedInModalOpen(true)}
           onOpenCompanyModal={() => setIsCompanyModalOpen(true)}
         />
@@ -214,17 +222,29 @@ export default function App() {
               {/* Action Buttons */}
               <div className="flex flex-wrap items-center gap-3">
                 <button
-                  onClick={handlePrintPdf}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-bold text-xs sm:text-sm uppercase tracking-wider shadow-sm transition-all"
+                  onClick={() => setIsPdfStudioOpen(true)}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-slate-950 font-bold text-xs sm:text-sm uppercase tracking-wider shadow-lg transition-all ring-2 ring-emerald-300/60"
                 >
-                  <Printer className="w-4 h-4" />
+                  <Bot className="w-4 h-4" />
                   <span>
                     {isAr
-                      ? 'طباعة / حفظ كتالوج PDF كامل'
+                      ? 'استوديو وفحص PDF بالذكاء الاصطناعي'
                       : isDe
-                      ? 'PDF-Katalog drucken / speichern'
-                      : 'Export / Print PDF Catalog'}
+                      ? 'KI-PDF-Studio & Export'
+                      : 'AI PDF Studio & Export'}
                   </span>
+                  <span className="px-1.5 py-0.5 bg-emerald-900 text-emerald-200 rounded text-[10px] font-mono">
+                    AI
+                  </span>
+                </button>
+
+                <button
+                  onClick={handlePrintPdf}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-900/80 hover:bg-emerald-800 border border-emerald-700 text-white font-semibold text-xs sm:text-sm uppercase tracking-wider transition-all"
+                  title="طباعة فورية مباشرة"
+                >
+                  <Printer className="w-4 h-4 text-emerald-300" />
+                  <span>{isAr ? 'طباعة مباشرة' : 'Direct Print'}</span>
                 </button>
 
                 <button
@@ -556,6 +576,16 @@ export default function App() {
           onClose={() => setSelectedProductForSpec(null)}
           languageMode={languageMode}
           company={company}
+        />
+
+        <AiPdfStudioModal
+          isOpen={isPdfStudioOpen}
+          onClose={() => setIsPdfStudioOpen(false)}
+          products={products}
+          company={company}
+          currentLanguage={languageMode}
+          onPrint={handlePrintPdf}
+          onLanguageChange={setLanguageMode}
         />
       </div>
     </div>

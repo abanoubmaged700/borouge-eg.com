@@ -210,19 +210,19 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </button>
 
-          {/* PDF Download / Print Button */}
+          {/* PDF Download / Print Button with AI Agent */}
           <button
             onClick={onOpenPdf}
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-md bg-emerald-500 text-slate-950 hover:bg-emerald-400 active:bg-emerald-600 text-xs font-bold tracking-wide uppercase shadow-sm transition-all"
-            title="Download or Print full A4 B2B Catalog PDF"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-md bg-emerald-500 text-slate-950 hover:bg-emerald-400 active:bg-emerald-600 text-xs font-bold tracking-wide uppercase shadow-sm transition-all ring-1 ring-emerald-300/60"
+            title="Open AI PDF Studio to inspect, fix images and export full A4 B2B Catalog PDF"
           >
-            <Printer className="w-3.5 h-3.5" />
+            <Sparkles className="w-3.5 h-3.5 text-slate-950" />
             <span>
               {languageMode === 'ar'
-                ? 'طباعة PDF'
+                ? 'استوديو PDF الذكي (AI)'
                 : languageMode === 'de'
-                ? 'Katalog PDF'
-                : 'Export PDF'}
+                ? 'KI-PDF-Studio'
+                : 'AI PDF Studio'}
             </span>
           </button>
         </div>

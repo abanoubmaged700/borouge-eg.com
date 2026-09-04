@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, ZoomIn, Upload, RotateCcw, Check, Sparkles, X } from 'lucide-react';
+import { Camera, ZoomIn, Upload, RotateCcw, Check, Sparkles, X, ImageOff, RefreshCw } from 'lucide-react';
 import { DEFAULT_PRODUCT_IMAGES, PRODUCT_VARIETIES, getCustomPhoto, setCustomPhoto, resetCustomPhoto } from '../data/productImages';
 
 interface ProductVisualProps {
@@ -9,6 +9,7 @@ interface ProductVisualProps {
   className?: string;
   allowUpload?: boolean;
   showBadge?: boolean;
+  overrideImageUrl?: string;
 }
 
 export const ProductVisual: React.FC<ProductVisualProps> = ({
@@ -18,15 +19,28 @@ export const ProductVisual: React.FC<ProductVisualProps> = ({
   className = '',
   allowUpload = true,
   showBadge = true,
+  overrideImageUrl,
 }) => {
-  const [photoUrl, setPhotoUrl] = useState<string>(
-    () => getCustomPhoto(productId) || DEFAULT_PRODUCT_IMAGES[productId] || '/images/products/okra.jpg'
-  );
+  const getInitialUrl = () => {
+    if (overrideImageUrl) return overrideImageUrl;
+    return getCustomPhoto(productId) || DEFAULT_PRODUCT_IMAGES[productId] || `/images/products/${productId}.jpg`;
+  };
+
+  const [photoUrl, setPhotoUrl] = useState<string>(getInitialUrl);
   const [isCustom, setIsCustom] = useState<boolean>(() => !!getCustomPhoto(productId));
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [activeVariety, setActiveVariety] = useState<string>('');
   const [uploadFeedback, setUploadFeedback] = useState<string | null>(null);
+  const [hasError, setHasError] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Keep synced if override changes
+  useEffect(() => {
+    if (overrideImageUrl) {
+      setPhotoUrl(overrideImageUrl);
+      setHasError(false);
+    }
+  }, [overrideImageUrl]);
 
   // Sync state if custom photo changed via event
   useEffect(() => {
@@ -36,9 +50,12 @@ export const ProductVisual: React.FC<ProductVisualProps> = ({
         if (customEvent.detail.dataUrl) {
           setPhotoUrl(customEvent.detail.dataUrl);
           setIsCustom(true);
+          setHasError(false);
         } else {
-          setPhotoUrl(DEFAULT_PRODUCT_IMAGES[productId] || '/images/products/okra.jpg');
+          const fallback = DEFAULT_PRODUCT_IMAGES[productId] || `/images/products/${productId}.jpg`;
+          setPhotoUrl(fallback);
           setIsCustom(false);
+          setHasError(false);
         }
       }
     };
@@ -64,6 +81,7 @@ export const ProductVisual: React.FC<ProductVisualProps> = ({
         setCustomPhoto(productId, result);
         setPhotoUrl(result);
         setIsCustom(true);
+        setHasError(false);
         setUploadFeedback('تم تحديث الصورة الحقيقية بنجاح!');
         setTimeout(() => setUploadFeedback(null), 3000);
       }
@@ -74,16 +92,28 @@ export const ProductVisual: React.FC<ProductVisualProps> = ({
   const handleReset = (e: React.MouseEvent) => {
     e.stopPropagation();
     resetCustomPhoto(productId);
-    setPhotoUrl(DEFAULT_PRODUCT_IMAGES[productId] || '/images/products/okra.jpg');
+    const fallback = DEFAULT_PRODUCT_IMAGES[productId] || `/images/products/${productId}.jpg`;
+    setPhotoUrl(fallback);
     setIsCustom(false);
-    setUploadFeedback('تمت استعادة الصورة الأصلية');
+    setHasError(false);
+    setUploadFeedback('تمت استعادة الصورة الافتراضية');
     setTimeout(() => setUploadFeedback(null), 2500);
+  };
+
+  const handleImageError = () => {
+    // If custom failed, revert to default
+    if (isCustom) {
+      setIsCustom(false);
+      setPhotoUrl(DEFAULT_PRODUCT_IMAGES[productId] || `/images/products/${productId}.jpg`);
+    } else {
+      setHasError(true);
+    }
   };
 
   const varieties = PRODUCT_VARIETIES[productId] || [];
 
   const containerSizes = {
-    sm: 'w-16 h-16 min-h-[4rem]',
+    sm: 'w-12 h-12 min-h-[3rem]',
     md: 'w-full h-56 min-h-[14rem]',
     lg: 'w-full h-72 min-h-[18rem]',
     full: 'w-full h-full min-h-[10rem]',
@@ -91,15 +121,22 @@ export const ProductVisual: React.FC<ProductVisualProps> = ({
 
   if (size === 'sm') {
     return (
-      <div className={`relative overflow-hidden rounded-lg bg-slate-900 shadow-2xs ${containerSizes[size]} ${className}`}>
-        <img
-          src={photoUrl}
-          alt={name}
-          referrerPolicy="no-referrer"
-          className="w-full h-full object-cover object-center"
-          loading="lazy"
-        />
-        <div className="absolute inset-0 ring-1 ring-inset ring-black/10 rounded-lg pointer-events-none" />
+      <div className={`relative overflow-hidden rounded-lg bg-slate-100 border border-slate-200 shadow-2xs ${containerSizes[size]} ${className}`}>
+        {!hasError ? (
+          <img
+            src={photoUrl}
+            alt={name}
+            crossOrigin="anonymous"
+            referrerPolicy="no-referrer"
+            className="w-full h-full object-cover object-center"
+            loading="eager"
+            onError={handleImageError}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-emerald-900 text-emerald-300 text-[10px] font-bold p-1 text-center">
+            IQF
+          </div>
+        )}
       </div>
     );
   }
@@ -108,22 +145,43 @@ export const ProductVisual: React.FC<ProductVisualProps> = ({
     <>
       <div
         id={`product-visual-${productId}`}
-        className={`group relative flex flex-col items-center justify-center overflow-hidden rounded-xl bg-slate-900 border border-slate-200/80 shadow-xs ${containerSizes[size]} ${className}`}
+        className={`group relative flex flex-col items-center justify-center overflow-hidden rounded-xl bg-slate-100 border border-slate-200/80 shadow-xs ${containerSizes[size]} ${className}`}
       >
         {/* Real Product Photo */}
-        <img
-          src={photoUrl}
-          alt={name}
-          referrerPolicy="no-referrer"
-          className="w-full h-full object-cover object-center transition-transform duration-500 ease-out group-hover:scale-105"
-          loading="lazy"
-        />
+        {!hasError ? (
+          <img
+            src={photoUrl}
+            alt={name}
+            crossOrigin="anonymous"
+            referrerPolicy="no-referrer"
+            className="w-full h-full object-cover object-center transition-transform duration-500 ease-out group-hover:scale-105"
+            loading="eager"
+            onError={handleImageError}
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 p-4 text-center">
+            <ImageOff className="w-8 h-8 text-slate-400 mb-2" />
+            <p className="text-xs font-bold text-slate-700">{name}</p>
+            <p className="text-[11px] text-slate-500 mt-1">صورة قيد المعالجة</p>
+            {allowUpload && (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="mt-2 px-2.5 py-1 bg-emerald-600 text-white rounded text-xs font-bold flex items-center gap-1"
+              >
+                <Upload className="w-3 h-3" />
+                <span>رفع صورة</span>
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Subtle Dark Vignette gradient for text contrast */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 pointer-events-none" />
+        {!hasError && (
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 pointer-events-none" />
+        )}
 
         {/* Real Photo Authentic Badge */}
-        {showBadge && (
+        {showBadge && !hasError && (
           <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-md border border-emerald-500/40 text-white text-[10.5px] font-bold shadow-sm">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span className="font-medium tracking-wide">
@@ -134,9 +192,11 @@ export const ProductVisual: React.FC<ProductVisualProps> = ({
         )}
 
         {/* Temp & Flash Frozen badge */}
-        <div className="absolute top-3 right-3 z-10 px-2 py-0.5 rounded bg-black/60 backdrop-blur-md border border-white/20 text-white font-mono text-[10px] font-bold">
-          -18°C IQF
-        </div>
+        {!hasError && (
+          <div className="absolute top-3 right-3 z-10 px-2 py-0.5 rounded bg-black/60 backdrop-blur-md border border-white/20 text-white font-mono text-[10px] font-bold">
+            -18°C IQF
+          </div>
+        )}
 
         {/* Feedback message banner */}
         {uploadFeedback && (
@@ -147,7 +207,7 @@ export const ProductVisual: React.FC<ProductVisualProps> = ({
         )}
 
         {/* Variety Sub-Chips if available */}
-        {varieties.length > 0 && size !== 'sm' && (
+        {varieties.length > 0 && size !== 'sm' && allowUpload && (
           <div className="absolute bottom-11 left-3 right-3 z-10 flex flex-wrap gap-1">
             {varieties.map((v) => (
               <button
@@ -156,6 +216,7 @@ export const ProductVisual: React.FC<ProductVisualProps> = ({
                   e.stopPropagation();
                   setActiveVariety(v.id);
                   setPhotoUrl(v.image);
+                  setHasError(false);
                 }}
                 className={`px-2 py-0.5 rounded text-[10px] font-bold backdrop-blur-md border transition-all ${
                   activeVariety === v.id
@@ -170,19 +231,19 @@ export const ProductVisual: React.FC<ProductVisualProps> = ({
         )}
 
         {/* Bottom Action Controls on Hover / Touch */}
-        <div className="absolute bottom-2 left-2 right-2 z-10 flex items-center justify-between gap-1">
-          {/* Zoom Lightbox Trigger */}
-          <button
-            onClick={() => setIsLightboxOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1 bg-white/90 hover:bg-white text-slate-900 rounded-md text-xs font-semibold shadow-md transition-all active:scale-95"
-            title="تكبير وفحص الحبات وجودة التجميد"
-          >
-            <ZoomIn className="w-3.5 h-3.5 text-emerald-700" />
-            <span className="text-[11px]">فحص وتكبير</span>
-          </button>
+        {allowUpload && !hasError && (
+          <div className="absolute bottom-2 left-2 right-2 z-10 flex items-center justify-between gap-1">
+            {/* Zoom Lightbox Trigger */}
+            <button
+              onClick={() => setIsLightboxOpen(true)}
+              className="flex items-center gap-1 px-2.5 py-1 bg-white/90 hover:bg-white text-slate-900 rounded-md text-xs font-semibold shadow-md transition-all active:scale-95"
+              title="تكبير وفحص الحبات وجودة التجميد"
+            >
+              <ZoomIn className="w-3.5 h-3.5 text-emerald-700" />
+              <span className="text-[11px]">فحص وتكبير</span>
+            </button>
 
-          {/* Upload and Reset Actions */}
-          {allowUpload && (
+            {/* Upload and Reset Actions */}
             <div className="flex items-center gap-1">
               <input
                 type="file"
@@ -200,8 +261,7 @@ export const ProductVisual: React.FC<ProductVisualProps> = ({
                 title="اضغط لرفع صورتك الحقيقية من الموبايل أو الواتساب"
               >
                 <Upload className="w-3 h-3" />
-                <span className="text-[11px] hidden sm:inline">رفع صورة للمنتج</span>
-                <span className="text-[11px] sm:hidden">رفع</span>
+                <span className="text-[11px] hidden sm:inline">رفع صورة</span>
               </button>
 
               {isCustom && (
@@ -214,8 +274,8 @@ export const ProductVisual: React.FC<ProductVisualProps> = ({
                 </button>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Lightbox High-Resolution Modal */}
@@ -224,7 +284,6 @@ export const ProductVisual: React.FC<ProductVisualProps> = ({
           className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4 sm:p-8 animate-fadeIn"
           onClick={() => setIsLightboxOpen(false)}
         >
-          {/* Close Button */}
           <button
             onClick={() => setIsLightboxOpen(false)}
             className="absolute top-4 right-4 z-50 p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
@@ -233,7 +292,6 @@ export const ProductVisual: React.FC<ProductVisualProps> = ({
             <X className="w-6 h-6" />
           </button>
 
-          {/* Modal Header */}
           <div
             className="absolute top-4 left-4 z-50 flex items-center gap-3 text-white"
             onClick={(e) => e.stopPropagation()}
@@ -245,7 +303,6 @@ export const ProductVisual: React.FC<ProductVisualProps> = ({
             <span className="text-sm font-bold">{name}</span>
           </div>
 
-          {/* Image Canvas in Lightbox */}
           <div
             className="relative max-w-4xl max-h-[80vh] w-full flex items-center justify-center overflow-hidden rounded-2xl border border-white/10 shadow-2xl bg-black"
             onClick={(e) => e.stopPropagation()}
@@ -253,12 +310,12 @@ export const ProductVisual: React.FC<ProductVisualProps> = ({
             <img
               src={photoUrl}
               alt={name}
+              crossOrigin="anonymous"
               referrerPolicy="no-referrer"
               className="max-w-full max-h-[80vh] object-contain select-none"
             />
           </div>
 
-          {/* Modal Bottom Tool Bar */}
           <div
             className="mt-4 flex items-center gap-3 text-white text-xs bg-slate-900/80 px-4 py-2 rounded-xl border border-white/10"
             onClick={(e) => e.stopPropagation()}
